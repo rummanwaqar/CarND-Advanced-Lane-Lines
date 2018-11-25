@@ -1,130 +1,65 @@
 import numpy as np
 import cv2
 
-class GradientSetting:
-    '''
-    Settings for indiviual gradient setting
-    '''
-    def __init__(self, kernel=0, threshold=0):
-        self.kernel = kernel
-        self.threshold = threshold
+# Settings
+HLS_THRESHOLD = [[(0,255), (200,255), (0,255)], [(0,50),(50,255),(100,255)]]
+GRADIENT_KERNEL_SIZE = 15
+GRADIENT_THRESHOLD = [(30,100), (0.6, 1.30)]
+ROI_SRC = np.array([[560,460], [190,690], [1150,690], [750,460]], dtype='float32')
+ROI_DST = np.array([[200, 0], [200,720], [1080,720], [1080, 0]], dtype='float32')
+    
 
-class MaskSetting:
+def color_threshold_image3(img, thresholds):
     '''
-    Settings for combined gradient mask
+    color thresholds a 3 channel image
     '''
-    blur = None
-    grad_x = GradientSetting()
-    grad_y = GradientSetting()
-    grad_mag = GradientSetting()
+    output = np.zeros([img.shape[0], img.shape[1]])   
 
-def gradient_mask(img, settings, mask_type='and'):
-    '''
-    Calculate gradient mask
-    '''
-    assert isinstance(settings, MaskSetting)
-    
-    r_channel = img[:,:,0]
-    hls = cv2.cvtColor(img, cv2.COLOR_RGB2HLS)
-    s_channel = hls[:,:,2]
-    
-    # calculate masks
-    _,_,_,r_mask = combined_thresh(r_channel, settings)
-    _,_,_,s_mask = combined_thresh(s_channel, settings)
-    
-    # combine masks
-    mask = np.zeros_like(r_channel)
-    if mask_type == 'and':
-        mask[(r_mask == 1)&(s_mask == 1)] = 1
-    else: # 'or'
-        mask[(r_mask == 1)|(s_mask == 1)] = 1
-        
-    return r_mask, s_mask, mask
-    
-def combined_thresh(img, settings):
-    '''
-    Combine gradient in x, gradient in y, and gradient abs magnitude 
-    '''
-    assert isinstance(settings, MaskSetting)
-    
-    # apply blur
-    if settings.blur:
-        img = cv2.GaussianBlur(img,(settings.blur,settings.blur),0)
-        
-    # gradients
-    grad_x = abs_sobel_thresh(img, 'x', 
-                              sobel_kernel=settings.grad_x.kernel, 
-                              thresh=settings.grad_x.threshold)
-    grad_y = abs_sobel_thresh(img, 'y', 
-                              sobel_kernel=settings.grad_y.kernel, 
-                              thresh=settings.grad_y.threshold)
-    grad_mag = mag_thresh(img, 
-                          sobel_kernel=settings.grad_mag.kernel, 
-                          thresh=settings.grad_mag.threshold)
-    
-    # combine gradients (only x,y,mag)
-    mask = np.zeros_like(img)
-    mask[((grad_mag==1)&(grad_x==1)&(grad_y==1))] = 1
-    
-    return grad_x, grad_y, grad_mag, mask 
- 
-def abs_sobel_thresh(img, orient='x', sobel_kernel=3, thresh=(0,255)):
-    '''
-    takes derivate in one axis and thresholds on it
-    '''
-    # single channel
-    assert len(img.shape) == 2
-    # take derivative
-    derivative = None
-    if orient == 'x':
-        derivative = cv2.Sobel(img, cv2.CV_64F, 1, 0, ksize=sobel_kernel)
-    elif orient == 'y':
-        derivative = cv2.Sobel(img, cv2.CV_64F, 0, 1, ksize=sobel_kernel)
-    # take abs value
-    abs_derivative = np.absolute(derivative)
-    # scale up to 8-bit
-    scaled_derivative = np.int8(255*abs_derivative/np.max(abs_derivative))
-    # create mask with threshold
-    mask = np.zeros_like(scaled_derivative)
-    mask[(scaled_derivative >= thresh[0]) & (scaled_derivative <= thresh[1])] = 1
-    return mask
+    output[(((img[:,:,0] >= thresholds[0][0]) & (img[:,:,0] <= thresholds[0][1])) & 
+            ((img[:,:,1] >= thresholds[1][0]) & (img[:,:,1] <= thresholds[1][1])) & 
+            ((img[:,:,2] >= thresholds[2][0]) & (img[:,:,2] <= thresholds[2][1])))] = 1
+    return output
 
-def mag_thresh(img, sobel_kernel=3, thresh=(0,255)):
+def or_masks(mask1, mask2):
     '''
-    takes derivate in x and y and thresholds on combined magnitude
+    OR operation for two masks
     '''
-    # single channel
-    assert len(img.shape) == 2
-    # take derivative
-    derivative_x = cv2.Sobel(img, cv2.CV_64F, 1, 0, ksize=sobel_kernel)
-    derivative_y = cv2.Sobel(img, cv2.CV_64F, 0, 1, ksize=sobel_kernel)
-    # take magnitude value
-    mag_derivative = np.sqrt(np.square(derivative_x) + np.square(derivative_y))
-    # scale up to 8-bit
-    scaled_derivative = np.int8(255*mag_derivative/np.max(mag_derivative))
-    # create mask with threshold
-    mask = np.zeros_like(scaled_derivative)
-    mask[(scaled_derivative >= thresh[0]) & (scaled_derivative <= thresh[1])] = 1
-    return mask
+    mask_out = np.zeros_like(mask1)
+    mask_out[((mask1==1) | (mask2==1))] = 1
+    return mask_out
 
-def dir_thresh(img, sobel_kernel=3, thresh=(0, np.pi/2)):
+def and_masks(mask1, mask2):
     '''
-    takes derivative in x and y and thresholds on direction of gradient
+    AND operation for two masks
     '''
-    # single channel
-    assert len(img.shape) == 2
-    # take derivative
-    derivative_x = cv2.Sobel(img, cv2.CV_64F, 1, 0, ksize=sobel_kernel)
-    derivative_y = cv2.Sobel(img, cv2.CV_64F, 0, 1, ksize=sobel_kernel)
-    # take abs of x and y
-    abs_x = np.absolute(derivative_x)
-    abs_y = np.absolute(derivative_y)
-    # find direction
-    direction = np.arctan2(abs_y, abs_x)
-    # create mask with threshold
-    mask = np.zeros_like(direction)
-    mask[(direction >= thresh[0]) & (direction <= thresh[1])] = 1
-    return mask
+    mask_out = np.zeros_like(mask1)
+    mask_out[((mask1==1) & (mask2==1))] = 1
+    return mask_out
+
+def scale_8(img):
+    '''
+    scaled an image to 8-bit (0-255)
+    '''
+    return np.int8(255*img/np.max(img))
+
+def gradient_threshold(img, kernel_size=3, thresholds=[[0,255], [0,np.pi/2]]):
+    '''
+    thresholds an image using gradient in x and gradient dir 
+    '''
+    g_x = np.absolute(cv2.Sobel(img, cv2.CV_64F, 1, 0, ksize=kernel_size))
+    g_y = np.absolute(cv2.Sobel(img, cv2.CV_64F, 0, 1, ksize=kernel_size))
+    
+    # gradient x mask
+    g_x_scaled = scale_8(g_x)
+    mask_x = np.zeros_like(img)
+    mask_x[((g_x_scaled >=thresholds[0][0]) & (g_x_scaled <= thresholds[0][1]))] = 1
+    
+    # direction mask
+    g_dir = np.arctan2(g_y, g_x)
+    mask_dir = np.zeros_like(img)
+    mask_dir[((g_dir >= thresholds[1][0]) & (g_dir <= thresholds[1][1]))] = 1
+    
+    return and_masks(mask_x, mask_dir)
 
 def roi(img, vertices):
     '''
@@ -148,7 +83,7 @@ def roi(img, vertices):
     cv2.fillPoly(mask, np.array([vertices], dtype=np.int32), ignore_mask_color)
     
     #returning the image only where mask pixels are nonzero
-    masked_image = cv2.bitwise_and(img, mask)
+    masked_image = np.float32(cv2.bitwise_and(img, mask) != 0)
     return masked_image
 
 def get_prespective_transform(src, dst):

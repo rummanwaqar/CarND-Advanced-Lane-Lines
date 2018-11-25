@@ -7,7 +7,7 @@ from preprocessing import warp_image
 # output image folder
 output_folder = 'output_images/'
 
-def display(images, labels, fname='', path=output_folder, figsize=None, cmap=None):
+def display_images(images, labels, fname='', path=output_folder, figsize=None, cmap=None):
     assert len(images) > 0
     assert len(images) == len(labels)
     
@@ -69,3 +69,15 @@ def draw_lanes(img, left_fit, right_fit, M_inv):
     # Warp the blank back to original image space using inverse perspective matrix (Minv)
     newwarp = warp_image(color_warp, M_inv)
     return newwarp
+
+def embed_image(img1, img2, size=(240,135), offset=(50,50)):
+    '''
+    embeds a scaled image into another image
+    '''
+    output = np.copy(img1)
+    # scale second image
+    scaled = cv2.resize(img2,(size[0],size[1])) * 255
+    scaled = np.dstack((scaled, scaled, scaled))
+    # embed image
+    output[offset[1]:offset[1]+scaled.shape[0], offset[0]:offset[0]+scaled.shape[1]] = scaled
+    return output
