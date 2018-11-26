@@ -23,5 +23,5 @@ The following steps were used to set up a robust lane detection pipeline:
 Links
 ---
 * [Project Writeup](writeup.md)
-* [IPython Notebook](Advance Lane Finding.ipynb)
-* [Image Thresholding Playground](Image Preprocessing.ipynb)
+* [IPython Notebook](Advance&#32;Lane&#32;Finding.ipynb)
+* [Image Thresholding Playground](Image&#32;Preprocessing.ipynb)
