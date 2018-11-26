@@ -5,7 +5,7 @@ import cv2
 HLS_THRESHOLD = [[(0,255), (200,255), (0,255)], [(0,50),(50,255),(100,255)]]
 GRADIENT_KERNEL_SIZE = 15
 GRADIENT_THRESHOLD = [(30,100), (0.6, 1.30)]
-ROI_SRC = np.array([[560,460], [190,690], [1150,690], [750,460]], dtype='float32')
+ROI_SRC = np.array([[550,460], [190,690], [1150,690], [750,460]], dtype='float32')
 ROI_DST = np.array([[200, 0], [200,720], [1080,720], [1080, 0]], dtype='float32')
     
 

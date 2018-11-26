@@ -28,24 +28,27 @@ def display_images(images, labels, fname='', path=output_folder, figsize=None, c
         plt.savefig(os.path.join(path, fname), bbox_inches='tight')
     plt.show()
     
-def plot_ploy_lines(img, left_fit, right_fit):
+def plot_lane_lines(img, left_points, left_fit, right_points, right_fit, left_fit_smooth=None, right_fit_smooth=None):
     '''
-    plot lines on image
+    highlights lane pixels and plot lane lines on the image
     '''
-    # Generate x and y values for plotting
+    assert len(img.shape) == 2
+    output = np.dstack((img, img, img)) * 255
+    output[left_points[1], left_points[0], :1] = 0
+    output[right_points[1], right_points[0], 2:] = 0
+    # plot lines
     ploty = np.linspace(0, img.shape[0]-1, img.shape[0] )
-    try:
-        left_fitx = left_fit[0]*ploty**2 + left_fit[1]*ploty + left_fit[2]
-        right_fitx = right_fit[0]*ploty**2 + right_fit[1]*ploty + right_fit[2]
-    except TypeError:
-        # Avoids an error if `left` and `right_fit` are still none or incorrect
-        print('The function failed to fit a line!')
-        left_fitx = 1*ploty**2 + 1*ploty
-        right_fitx = 1*ploty**2 + 1*ploty
-
-    plt.imshow(img, cmap='gray')
-    plt.plot(left_fitx, ploty, color='red')
-    plt.plot(right_fitx, ploty, color='red')
+    left_fitx = left_fit[0]*ploty**2 + left_fit[1]*ploty + left_fit[2]
+    right_fitx = right_fit[0]*ploty**2 + right_fit[1]*ploty + right_fit[2]
+    cv2.polylines(output, [np.vstack((left_fitx,ploty)).astype(np.int32).T], False, (255, 0, 0), 10)
+    cv2.polylines(output, [np.vstack((right_fitx,ploty)).astype(np.int32).T], False, (255, 0, 0), 10)
+    if left_fit_smooth is not None:
+        left_smooth_fitx = left_fit_smooth[0]*ploty**2 + left_fit_smooth[1]*ploty + left_fit_smooth[2]
+        cv2.polylines(output, [np.vstack((left_smooth_fitx,ploty)).astype(np.int32).T], False, (175, 16, 204), 5)
+    if right_fit_smooth is not None:
+        right_smooth_fitx = right_fit_smooth[0]*ploty**2 + right_fit_smooth[1]*ploty + right_fit_smooth[2]
+        cv2.polylines(output, [np.vstack((right_smooth_fitx,ploty)).astype(np.int32).T], False, (175, 16, 204), 5)
+    return output.astype(np.uint8)
     
 def draw_lanes(img, left_fit, right_fit, M_inv):
     '''
@@ -76,8 +79,9 @@ def embed_image(img1, img2, size=(240,135), offset=(50,50)):
     '''
     output = np.copy(img1)
     # scale second image
-    scaled = cv2.resize(img2,(size[0],size[1])) * 255
-    scaled = np.dstack((scaled, scaled, scaled))
+    scaled = cv2.resize(img2,(size[0],size[1])) 
+    if len(img2.shape) == 2:
+        scaled = np.dstack((scaled*255, scaled*255, scaled*255))
     # embed image
     output[offset[1]:offset[1]+scaled.shape[0], offset[0]:offset[0]+scaled.shape[1]] = scaled
     return output
