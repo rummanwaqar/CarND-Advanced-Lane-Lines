@@ -30,6 +30,8 @@ The lane finding pipeline is set up as follows:
 [warped]: ./output_images/warped.png "Warped"
 [lane_curves]: ./output_images/lane_curves.png "Lane Curves"
 [smoothing]: ./output_images/smoothing.png "Smoothing"
+[final]: ./output_images/final.png "Final"
+[gif]: ./output_videos/output.gif "Output GIF"
 
 ### Camera Calibration
 
@@ -136,75 +138,39 @@ We compute our offset from the centre of the road by first calculating the start
 of both lanes *(`eval_point_at_line()` in Cell[9])* and then calculating their offset from the centre of the image. *(`offset()` in Cell[9])*.
 
 
-We also compute the lane curvature for each lane using the following equation:
+We also compute the lane curvature for each lane by calculating the radius of the smallest circle that could be a tangent to our lane lines. The line coefficients are first converted to meters *(`cvt_line_to_meters()` in Cell[9])* and then we convert the curvature of the lane *(`measure_curvature()` in Cell[9])*.
 
-$R_{curvature} = ((1+f'(y)^2)^{3/2})/(|f''(y)|)$
+##### Drawing the lanes on the image
 
-Equation of parabola for a line $f(y)=Ay^2+By+C$.\n",
-    "\n",
-    "\n",
-    "\n",
-    "$R_{curvature} = ([1+(2Ay+B)^2]^{3/2})/(|2A|)$"
-def measure_curvature(y, line_eq):
-    '''
-    Calculates the curvature of polynomial functions.
-    '''
-    # calculation of R_curve (radius of curvature)
-    return ((1 + (2*y*line_eq[0]+line_eq[1])**2)**(3/2))/np.absolute(2*line_eq[0])
+Finally we draw the inside region of the lanes using `cv2.polyfill()` function and then unwarp the image using the inverse transformation matrix we previously calculated. We mix this with the original road image and then overlay text for curvature and offset on the image.
 
-def cvt_line_to_meters(line_eq, xm, ym):
-    '''
-    cvt line from pixels to meters
-    '''
-    new_line = np.copy(line_eq)
-    new_line[0] *= xm/(ym**2)
-    new_line[1] *= xm/ym
-    return new_line
+![Final]
 
-
-We also compute the lane curvature by calculating the radius of the smallest circle that could be a tangent to our lane lines - on a straight lane the radius would be quite big. We have to convert from pixel space to meters (aka real world units) by defining the appropriate pixel height to lane length and pixel width to lane width ratios:
-
-# Height ratio: 32 meters / 720 px
-self.ym_per_px = self.real_world_lane_size_meters[0] / self.img_dimensions[0]
-
-# Width ratio: 3.7 meters / 800 px
-self.xm_per_px = self.real_world_lane_size_meters[1] / self.lane_width_px
-
-I tried to manually estimate the length of the road on my bird's eye view images by referring to data from this resource: every time a car has travelled it has passed 40 feet (around 12.2 meters).
-
-Moreover, you can find more information on the mathematical underpinnings of radius of curvature via the following link.
-
-We also compute the car's distance from the center of the lane by offsetting the average of the starting (i.e. bottom) coordinates for the left and right lines of the lane, subtract the middle point as an offset and multiply by the lane's pixel to real world width ratio.
-
-Unwarping Drawing Lane Area
-Finally, we draw the inside the of the lane in green and unwarp the image, thus moving from bird's eye view to the original image. Additionally, we overlay this big image with small images of our lane detection algorithm to give a better feel of what is going on frame by frame. We also add textual information about lane curvature and vehicle's center position:
-
-
-
-![alt text][image5]
-
-#### 5. Describe how (and identify where in your code) you calculated the radius of curvature of the lane and the position of the vehicle with respect to center.
-
-I did this in lines # through # in my code in `my_other_file.py`
-
-#### 6. Provide an example image of your result plotted back down onto the road such that the lane area is identified clearly.
-
-I implemented this step in lines # through # in my code in `yet_another_file.py` in the function `map_lane()`.  Here is an example of my result on a test image:
-
-![alt text][image6]
+*Please note that all drawing functions can be found in [utils.py](utils.py)*
 
 ---
 
-### Pipeline (video)
+### Video
 
-#### 1. Provide a link to your final video output.  Your pipeline should perform reasonably well on the entire project video (wobbly lines are ok but no catastrophic failures that would cause the car to drive off the road!).
+The following gif shows the output of lane detection algorithm on a test video:
 
-Here's a [link to my video result](./project_video.mp4)
+![gif]
+
+The complete output video can be found [here](output_videos/output.mp4).
 
 ---
 
 ### Discussion
 
-#### 1. Briefly discuss any problems / issues you faced in your implementation of this project.  Where will your pipeline likely fail?  What could you do to make it more robust?
+#### Problems encountered
+* The pipeline is the colour dependent. Different lighting conditions (e.g. night time and shadows) or road conditions (e.g. snow or water) renders the algorithm ineffective.
+* Finding the right set of colourspace + colour and gradient threshold parameters was very time consuming.
+* The coordinates of the perspective transform is hard-coded. The numbers had to be tweaked to give us the proper transform. 
 
-Here I'll talk about the approach I took, what techniques I used, what worked and why, where the pipeline might fail and how I might improve it if I were going to pursue this project further.  
+#### Possible improvements to the pipeline
+* Investigating other colour spaces more like LAB.
+* Dynamic thresholding colours
+* Using the vanishing point along with lane lines can be used to automatically calculate the perspective transform.
+* Implementing better sanity checks like comparing gradients of lane lines at various points.
+* Averaging the curvature values to smooth them out.
+* A deep neural network can use used for lane detection. This method removes the need to manually find features and tune them.
